@@ -6,16 +6,15 @@ import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.vcs.FilePath;
-import com.intellij.openapi.vcs.FilePathImpl;
-import com.intellij.openapi.vcs.changes.CurrentBinaryContentRevision;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.apache.commons.lang.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -43,48 +42,47 @@ public class Comment extends AnAction {
         Project project = event.getData(PlatformDataKeys.PROJECT);
         Editor editor = event.getData(PlatformDataKeys.EDITOR);
         LogicalPosition position = editor.getCaretModel().getLogicalPosition();
+        DataContext dataContext = event.getDataContext();
 
         int currentLine = position.line + 1;
 
-        VirtualFile currentFile = (VirtualFile)event.getData(PlatformDataKeys.VIRTUAL_FILE);
-        FilePath filePath = new FilePathImpl(currentFile);
-        CurrentBinaryContentRevision contentRevision = new CurrentBinaryContentRevision(filePath);
-        //VcsRevisionNumber revision =
+        SelectionModel selectionModel = editor.getSelectionModel();
+
+        String currentLine2 = StringUtils.EMPTY;
+        if (selectionModel.hasSelection()) {
+            currentLine2 = "#L" + (selectionModel.getSelectionStartPosition().getLine() + 1) + "-L"
+                    + (selectionModel.getSelectionEndPosition().getLine() + 1);
+        } else {
+            currentLine2 = "#L" + (selectionModel.getSelectionStartPosition().getLine() + 1);
+        }
 
         Messages.showInputDialog(project, "Line: " + currentLine + ", ver: ",
                 "Enter comment",
                 Messages.getQuestionIcon());
 
+        commentRevision(project, dataContext);
+
         Messages.showMessageDialog(project, "Comment sent", "Information", Messages.getInformationIcon());
-
-        toGithub(event);
-
     }
 
-    public void toGithub(AnActionEvent e) {
-
-        Project p = e.getProject();
-
-//        VirtualFile[] selectedFiles = FileEditorManager.getInstance(p).getSelectedFiles();
-        VirtualFile current_file = (VirtualFile) PlatformDataKeys.VIRTUAL_FILE.getData(e.getDataContext());
-
-//        String current_file_name = selectedFiles[0].toString().replace("file://" + p.getBasePath() + "/", "");
-        String current_file_name = current_file.toString().replace("file://" + p.getBasePath() + "/", "");
+    private boolean commentRevision(Project project, DataContext dataContext) {
+        VirtualFile current_file = (VirtualFile) PlatformDataKeys.VIRTUAL_FILE.getData(dataContext);
+        String current_file_name = current_file.toString().replace("file://" + project.getBasePath() + "/", "");
+        String basePath = project.getBasePath();
 
         BufferedReader br_config;
-
         BufferedReader br_head;
 
         String line;
         String group = "";
-        String project = "";
+        String projectName = "";
         String head = "";
         String cursor_line;
         boolean is_set_github = false;
 
         try {
-            br_config = new BufferedReader(new FileReader(p.getBasePath() + "/.git/config"));
-            br_head = new BufferedReader(new FileReader(p.getBasePath() + "/.git/HEAD"));
+            br_config = new BufferedReader(new FileReader(basePath + "/.git/config"));
+            br_head = new BufferedReader(new FileReader(basePath + "/.git/HEAD"));
 
             while ((line = br_config.readLine()) != null) {
                 if (line.matches(".*url = .*")) {
@@ -93,7 +91,7 @@ public class Comment extends AnAction {
 
                     if (matcher.find()) {
                         group = (matcher.group(2) != null) ? matcher.group(2) : matcher.group(4);
-                        project = (matcher.group(3) != null) ? matcher.group(3) : matcher.group(5);
+                        projectName = (matcher.group(3) != null) ? matcher.group(3) : matcher.group(5);
                         is_set_github = true;
                         break;
                     }
@@ -110,19 +108,19 @@ public class Comment extends AnAction {
 
         } catch (Exception exception) {
             // .git/config is empty or not found
-            Notifications.Bus.notify(new Notification("Open in GitHub", "Error", "Can not open [.git/config] file.", NotificationType.ERROR));
-            return;
+            Notifications.Bus
+                    .notify(new Notification("Open in GitHub", "Error", "Can not open [.git/config] file.", NotificationType.ERROR));
+            return false;
         }
 
         if (!is_set_github) {
             // repository is not management in github
             Notifications.Bus.notify(new Notification("Open in GitHub", "Error", "Repository is not management in GitHub.", NotificationType.ERROR));
-            return;
+            return false;
         }
 
-        Editor editor = (Editor) PlatformDataKeys.EDITOR.getData(e.getDataContext());
+        Editor editor = (Editor) PlatformDataKeys.EDITOR.getData(dataContext);
         SelectionModel selectionModel = editor.getSelectionModel();
-
 
         if (selectionModel.hasSelection()) {
             cursor_line = "#L" + (selectionModel.getSelectionStartPosition().getLine() + 1) + "-L"
@@ -131,7 +129,7 @@ public class Comment extends AnAction {
             cursor_line = "#L" + (selectionModel.getSelectionStartPosition().getLine() + 1);
         }
 
-        String request = GITHUB_URL + group + "/" + project + "/blob" + head + "/" + current_file_name + cursor_line;
+        String request = GITHUB_URL + group + "/" + projectName + "/blob" + head + "/" + current_file_name + cursor_line;
 
         String[] command = new String[]{ExecUtil.getOpenCommandPath()};
 
@@ -143,7 +141,8 @@ public class Comment extends AnAction {
         } catch (ExecutionException exception) {
             Notifications.Bus.notify(new Notification("Open in GitHub", "Error", "Error: " + exception.getMessage(),
                     NotificationType.ERROR));
-            return;
+            return false;
         }
+        return true;
     }
 }
