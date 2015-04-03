@@ -5,6 +5,11 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vcs.FilePath;
+import com.intellij.openapi.vcs.FilePathImpl;
+import com.intellij.openapi.vcs.changes.CurrentBinaryContentRevision;
+import com.intellij.openapi.vcs.history.VcsRevisionNumber;
+import com.intellij.openapi.vfs.VirtualFile;
 
 /**
  * Created by rskvirsky on 03/04/15.
@@ -25,9 +30,16 @@ public class Comment extends AnAction {
         Editor editor = event.getData(PlatformDataKeys.EDITOR);
         LogicalPosition position = editor.getCaretModel().getLogicalPosition();
 
-        int currentLine = position.line + 1
+        int currentLine = position.line + 1;
 
-        String text = Messages.showInputDialog(project, "Line: " + currentLine, "Enter comment", Messages.getQuestionIcon());
+        VirtualFile currentFile = (VirtualFile)event.getData(PlatformDataKeys.VIRTUAL_FILE);
+        FilePath filePath = new FilePathImpl(currentFile);
+        CurrentBinaryContentRevision contentRevision = new CurrentBinaryContentRevision(filePath);
+        //VcsRevisionNumber revision =
+
+        String text = Messages.showInputDialog(project, "Line: " + currentLine + ", ver: " + revision,
+                "Enter comment",
+                Messages.getQuestionIcon());
 
         Messages.showMessageDialog(project, "Comment sent", "Information", Messages.getInformationIcon());
     }
