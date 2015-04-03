@@ -1,6 +1,8 @@
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 
@@ -20,7 +22,13 @@ public class Comment extends AnAction {
 
     public void actionPerformed(AnActionEvent event) {
         Project project = event.getData(PlatformDataKeys.PROJECT);
-        String txt= Messages.showInputDialog(project, "What is your name?", "Input your name", Messages.getQuestionIcon());
-        Messages.showMessageDialog(project, "Hello, " + txt + "!\n I am glad to see you.", "Information", Messages.getInformationIcon());
+        Editor editor = event.getData(PlatformDataKeys.EDITOR);
+        LogicalPosition position = editor.getCaretModel().getLogicalPosition();
+
+        int currentLine = position.line + 1
+
+        String text = Messages.showInputDialog(project, "Line: " + currentLine, "Enter comment", Messages.getQuestionIcon());
+
+        Messages.showMessageDialog(project, "Comment sent", "Information", Messages.getInformationIcon());
     }
 }
