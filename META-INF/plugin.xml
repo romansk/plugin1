@@ -38,6 +38,9 @@
 
   <actions>
     <!-- Add your actions here -->
+    <action id="EnterComment" class="Comment" text="comment">
+      <keyboard-shortcut keymap="$default" first-keystroke="ctrl meta M"/>
+    </action>
   </actions>
 
 </idea-plugin>
